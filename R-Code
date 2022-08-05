@@ -1,0 +1,92 @@
+#Loading libraries 
+
+library(keras)
+library(mlbench)
+library(ggplot2)
+library(neuralnet)
+library(tidymodels)
+library(tidyverse)
+library(magrittr)
+library(pROC)
+
+#Loading the dataset 
+
+df <- read.csv("/Users/prathamdave/Desktop/OnlineNewsPopularity.csv")
+
+#Inspecting the dataset 
+
+str(df)
+glimpse(df)
+
+#Preliminary data cleaning
+
+data <- df[2:61]
+str(df)
+data %<>% mutate_if(is.integer, as.numeric)
+
+#Preparing data
+
+#Matrix
+data <- as.matrix(data)
+dinames(data) <- NULL
+
+#Partition 
+set.seed(1234)
+ind <- sample(2, nrow(data), replace = T, prob = c(0.7,.03))
+training <- data[ind==1, 1:59]
+test <- data[ind==2, 1:59]
+trainingtarget <- data[ind==1, 60]
+testtarget <- data[ind==2, 60]
+
+#Normalizing data
+m <- colMeans(training)
+s <- apply(training, 2, sd)
+training <- scale(training, center = m, scale = s)
+test <- scale(test, center = m, scale = s)
+
+
+#Creating the model specification
+model <- keras_model_sequential() 
+model %>%
+  layer_dense(units = 180, activation = 'relu', input_shape = c(59)) %>%
+  layer_dropout(0.6) %>%
+  layer_dense(units = 90, activation = 'tanh') %>%
+  layer_dropout(0.6) %>%
+  layer_dense(units = 45, activation = 'tanh') %>%
+  layer_dropout(0.6) %>%
+  layer_dense(units = 23, activation = 'tanh') %>%
+  layer_dropout(0.6) %>%
+  layer_dense(units = 1)
+
+summary(model)
+
+#Visualizing the Neural Network
+  
+
+#Compile
+model %>% compile(loss = 'mse',
+                  optimizer = 'rmsprop',
+                  metrics = 'mae')
+
+#Fit Model
+mymodel <- model %>%
+  fit(
+    training,
+    trainingtarget,
+    epochs = 180,
+    batch_size = 64,
+    validation_split = 0.2
+  )
+
+plot(mymodel)
+
+#Evaluation of Model 
+
+model %>% evaluate(test, testtarget)
+pred <- model %>% predict(test)
+mean((testtarget - pred)^2)
+
+
+
+
+
